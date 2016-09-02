@@ -1,0 +1,35 @@
+#!/bin/bash
+
+# automatically add files with specifc regex to ansible_vault
+# at this point make it simple and add all files which include
+# the line anywhere:
+# '#!VAULTFILE!#
+
+ANSIBLE_SSH_DIR="ansible/files/ssh_keys"
+
+echo 'Enter password for ansible vault:'
+read -s PASSWD
+F=`mktemp`
+echo $PASSWD > $F
+
+FILES=`grep -Rl --exclude-dir=.git/ '#!VAULTFILE!#' *`
+for i in $FILES
+do
+    ansible-vault encrypt $i --vault-password-file=$F 
+done
+
+# also put all files in files/ssh_keys into vault
+# personal preference with the dir name BTW ;)
+if [ -e $ANSIBLE_SSH_DIR ]
+then
+    for i in `ls $ANSIBLE_SSH_DIR`
+    do
+        HEADER=`head -1 $ANSIBLE_SSH_DIR/$i`
+        if [[ ! $HEADER =~ '$ANSIBLE_VAULT' ]]
+  	    then
+                exec ansible-vault encrypt $ANSIBLE_SSH_DIR/$i --vault-password-file=$F
+        fi 
+    done
+fi
+
+exec rm $F
